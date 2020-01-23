@@ -12,16 +12,16 @@ import os
 # 
 # TODO: add timer to game, data structure to represent pieces, command to undo moves
 
-rule = "[a-g][1-9][a-g][1-9]" # regex rule for moves
+rule = "[a-h][1-9][a-h][1-9]" # regex rule for moves
 
 # white will be lowercase, black will be uppercase
 piece_dict = dict([
-    (0, "pawn"),
-    (1, "king"),
-    (2, "queen"),
-    (3, "knight"),
-    (4, "bishop"),
-    (5, "rook"),
+    (0, "P"),
+    (1, "K"),
+    (2, "Q"),
+    (3, "L"),
+    (4, "B"),
+    (5, "R"),
     (-1, "empty")
 ])
 
@@ -32,11 +32,17 @@ side_dict = dict([
 ])
 
 class Piece: # pieces
-    m_type = 0
-    m_position = 0
-    m_color = 0
-    def __init__(self, type = 0, pos = -1, color = -1):
+    def __init__(self, pos = -1, t = 0, col = -1):
+        self.m_type = t
+        self.m_position = pos
+        self.m_color = col
+    def updatePos(self, new_ind):
+        self.m_position = new_ind
         return 1
+    def get_pos(self, ):
+        return self.m_position
+    def get_type(self, ):
+        return self.m_type
 
 
 
@@ -57,15 +63,19 @@ class Board: # data structure to contain Pieces & update positions
           math.floor($pos / 8) = row (number)
           $pos%8 = column (letter)
     """
-    m_board = []
-    def initialize(): #default board setup
+    def __init__(self,):
+        self.m_board = []
+        self.initialize()
+
+    def initialize(self,): #default board setup
         # each side starts with 16 pieces each
         # king starts on opposite color as itself (white king on e1, black king on e8)
         # [pawn pawn pawn pawn pawn pawn pawn pawn]
         # [rook knight bishop queen king bishop knight rook]
         # empty points will be denoted by '*'
-        while count < 64:
-            add = Piece()
+        count = 1
+        while count <= 64:
+            add = None
             if count == 1 or count == 8 or count == 57 or count == 64: # rooks, 5
                 if count == 1 or count == 8: # white
                     add = Piece(count, 5, 0) 
@@ -98,30 +108,76 @@ class Board: # data structure to contain Pieces & update positions
                     add = Piece(count, 0, 1)
             else: # empty
                 add = Piece(count, -1, -1)
+            self.m_board.append(add)
+            count += 1
         return 1
 
-    def print_board_state():
-        return 1
-    def change_pos(start_pos, end_pos): # relies on the fact that the move has already been checked by stockfish to be valid
-        return 0
-    def undo_move():
-        return 0
-    def restart():
-        return 0
-    def get_position():
+    def print_board_state(self,):
+        """
+          a b c d e f g h
+          _ _ _ _ _ _ _ _
+       1 |               |
+       2 |               |
+       3 |               |
+       4 |               |
+       5 |               |
+       6 |               |
+       7 |               |
+       8 |_ _ _ _ _ _ _ _|
+          so if we have a 64 slot 1-dimensional array, taking a1 as 1, h1 as 8, a2 as 9 and so on...
+          math.floor($pos / 8) = row (number)
+          $pos%8 = column (letter)
+    """
+        print("     a b c d e f g h \n")
+        print("     _ _ _ _ _ _ _ _ \n")
+        # construct a string to represent pieces
+        row = 0
+        while row < 8:
+            string = str(row+1) + "   |"
+            col = 0
+            while col <= 7:
+                ind = (row) * 8 + col
+                addition = " "
+                p = self.m_board[ind].get_type()
+                if p != -1: # implies a non-empty square
+                    addition = piece_dict[p]
+                string += addition + " "
+                col += 1
+            string += "| \n"
+            row += 1
+            print(string)
+        print("     _ _ _ _ _ _ _ _ \n")
+
+    def change_pos(self, s_ind, e_ind): # relies on the fact that the move has already been checked by stockfish to be valid
+        # start_pos 
+        placeholder = self.m_board[s_ind]
+        self.m_board[s_ind] = Piece(s_ind, -1, -1)
+        self.m_board[e_ind] = placeholder
+        self.m_board[e_ind].updatePos(e_ind)
         return 1
 
-class Game: # handles game logic 
+    def undo_move(self):
+        return 0
 
+    def restart(self):
+        return 0
+
+    def get_position(self):
+        return 1
+
+class Game: # handles game logic + interacts with stockfish
     def __init__(self):
         abs_path = os.path.dirname(__file__)
         rel_path = 'stockfish-10-win/stockfish-10-win/stockfish_x86-64-modern.exe'
         self.sf = Stockfish(os.path.join(abs_path, rel_path)) #pull the engine from compiled file
         self.m_skill_level = 0
-        self.m_cur_turn = 0 # 0 for player turn, 1 for computer turn
+        self.m_cur_turn = 0                                   # 0 for player turn, 1 for computer turn
         self.m_in_game = False
         self.m_move_his = []
         self.num_moves = 0
+        self.set_skill_level(request_skill_level())           # request a skill level for engine
+        self.choose_side(request_side())                      # request a starting side
+        self.m_board = Board()
 
     def set_skill_level(self, d_level):   # function to set a skill level
         self.sf.set_skill_level(d_level)
@@ -131,31 +187,36 @@ class Game: # handles game logic
         self.m_cur_turn = d_side
 
     def check_for_mate(self, val):        # function periodically checks if there is a checkmate and ends game if true
-        return 0
+        return 1
 
-    def endgame(self, ):                  
-        return 0
+    def updateBoard(self, move): 
+        # first two characters of move are start, last two are end
+        start_pos = move[:2]
+        ind_pos_s = (ord(start_pos[0]) - 97) + ((int(start_pos[1])-1) * 8)
+        end_pos = move[2:4]
+        ind_pos_e = (ord(end_pos[0]) - 97) + ((int(end_pos[1])-1) * 8)
+        self.m_board.change_pos(ind_pos_s, ind_pos_e)
+        self.m_board.print_board_state()
+        return 1
+
+    def endGame(self, ):                  
+        return 1
     
     def run(self,):
         print('Game is now starting.')
         in_game = True
-        mate = False
         # start game
         while in_game:
             # check if currently in checkmate (to end game)
-            if len(self.m_move_his) > 0:
-                print(self.m_move_his)
-            self.check_for_mate(mate) # function to check if there are any legal moves to be made
-            if mate:
-                in_game = false
-                endgame()
-                break
+            #if len(self.m_move_his) > 0:
+            #    print(self.m_move_his)
+            move = None
             turn = "your" if self.m_cur_turn == 0 else "the computer's"
             print("It is now " + turn + " turn." + "\n")
             if self.m_cur_turn == 0:
                 move_done = 0
                 while not move_done:
-                    move = input('Enter your move: ' + '\n')
+                    move = input('Enter your move: ' + '\n').strip()
                     # first check if valid move format (letter + number + letter + number)
                     valid = re.search(rule, move)
                     if valid and self.sf.is_move_correct(move):
@@ -168,12 +229,13 @@ class Game: # handles game logic
                         print("Invalid move, please enter a different move." + '\n')
                 self.m_cur_turn = 1
             else: # computer's turn
-                com_move = self.sf.get_best_move()
-                print("The computer moves: " + com_move + '\n')
-                self.m_move_his.append(com_move)
+                move = self.sf.get_best_move()
+                print("The computer moves: " + move + '\n')
+                self.m_move_his.append(move)
                 self.sf.set_position(self.m_move_his)
                 self.m_cur_turn = 0
             self.num_moves = self.num_moves + 1
+            self.updateBoard(move)
 
 
 def request_skill_level(): # prompts user for inputting a skill level for engine
@@ -207,7 +269,7 @@ def request_side(): # prompts user for choosing a starting side
                 # if white, player goes first
                 c_side = 0
             else: 
-                if random.random() > 0.5:
+                if (random.randint(0, 999)/100) > 5:
                     c_side = 1
                 else:
                     c_side = 0
@@ -220,14 +282,11 @@ def request_side(): # prompts user for choosing a starting side
             print("Invalid input" + "\n")
     return c_side
 
-def initialize(game): # initializes game object
-    game.set_skill_level(request_skill_level())
-    game.choose_side(request_side())  
+
 
 def runGame():
     # first instantiate chess board object
     game = Game()
-    initialize(game)
     game.run()
 
 if __name__ == '__main__':
