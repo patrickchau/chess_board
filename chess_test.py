@@ -14,6 +14,7 @@ import os
 
 rule = "[a-g][1-9][a-g][1-9]" # regex rule for moves
 
+# white will be lowercase, black will be uppercase
 piece_dict = dict([
     (0, "pawn"),
     (1, "king"),
