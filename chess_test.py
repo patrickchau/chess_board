@@ -39,6 +39,8 @@ class Piece: # pieces
     def updatePos(self, new_ind):
         self.m_position = new_ind
         return 1
+    def get_color(self):
+        return self.m_color
     def get_pos(self, ):
         return self.m_position
     def get_type(self, ):
@@ -141,6 +143,8 @@ class Board: # data structure to contain Pieces & update positions
                 p = self.m_board[ind].get_type()
                 if p != -1: # implies a non-empty square
                     addition = piece_dict[p]
+                    if self.m_board[ind].get_color() == 0:
+                        addition = addition.lower()
                 string += addition + " "
                 col += 1
             string += "| \n"
