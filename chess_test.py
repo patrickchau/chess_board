@@ -10,7 +10,8 @@ import os
 
 # class hierarchy: Game -> board -> pieces
 # 
-# TODO: add timer to game, data structure to represent pieces, command to undo moves
+# TODO: add timer to game, data structure to represent pieces, command to undo moves, 3-fold repetition, checkmate, flip board view to match playing side
+#       update board for castling
 
 rule = "[a-h][1-9][a-h][1-9]" # regex rule for moves
 
@@ -130,9 +131,10 @@ class Board: # data structure to contain Pieces & update positions
           math.floor($pos / 8) = row (number)
           $pos%8 = column (letter)
     """
-        print("     a b c d e f g h \n")
-        print("     _ _ _ _ _ _ _ _ \n")
+        print("     a  b  c  d  e  f  g  h \n")
+        print("     _  _  _  _  _  _  _  _ \n")
         # construct a string to represent pieces
+        # if white go from 0 and work up. if black go from 
         row = 0
         while row < 8:
             string = str(row+1) + "   |"
@@ -145,12 +147,13 @@ class Board: # data structure to contain Pieces & update positions
                     addition = piece_dict[p]
                     if self.m_board[ind].get_color() == 0:
                         addition = addition.lower()
-                string += addition + " "
+                string += addition + "  "
                 col += 1
             string += "| \n"
             row += 1
             print(string)
-        print("     _ _ _ _ _ _ _ _ \n")
+        print("     -  -  -  -  -  -  -  - \n")
+        print("     a  b  c  d  e  f  g  h \n")
 
     def change_pos(self, s_ind, e_ind): # relies on the fact that the move has already been checked by stockfish to be valid
         # start_pos 
@@ -174,11 +177,11 @@ class Game: # handles game logic + interacts with stockfish
         abs_path = os.path.dirname(__file__)
         rel_path = 'stockfish-10-win/stockfish-10-win/stockfish_x86-64-modern.exe'
         self.sf = Stockfish(os.path.join(abs_path, rel_path)) #pull the engine from compiled file
-        self.m_skill_level = 0
+        self.m_skill_level = 0                                # skill level of engine
         self.m_cur_turn = 0                                   # 0 for player turn, 1 for computer turn
-        self.m_in_game = False
-        self.m_move_his = []
-        self.num_moves = 0
+        self.m_in_game = False                                # see if we're still in game
+        self.m_move_his = []                                  # move history to update position in stockfish
+        self.num_moves = 0                                    # number of moves (extraneous, may remove)
         self.set_skill_level(request_skill_level())           # request a skill level for engine
         self.choose_side(request_side())                      # request a starting side
         self.m_board = Board()
@@ -196,7 +199,7 @@ class Game: # handles game logic + interacts with stockfish
     def updateBoard(self, move): 
         # first two characters of move are start, last two are end
         start_pos = move[:2]
-        ind_pos_s = (ord(start_pos[0]) - 97) + ((int(start_pos[1])-1) * 8)
+        ind_pos_s = (ord(start_pos[0]) - 97) + ((int(start_pos[1])-1) * 8) 
         end_pos = move[2:4]
         ind_pos_e = (ord(end_pos[0]) - 97) + ((int(end_pos[1])-1) * 8)
         self.m_board.change_pos(ind_pos_s, ind_pos_e)
@@ -251,7 +254,7 @@ def request_skill_level(): # prompts user for inputting a skill level for engine
         if skill.isdigit() and int(skill) > 0 and int(skill) < 22:
             level_set = True
         elif count == 5:
-            print("Learn to read. Setting to default of 5.")
+            print("Setting to default of skill level 5.")
             skill = 5
         else:
             print("Invalid input" + "\n")
