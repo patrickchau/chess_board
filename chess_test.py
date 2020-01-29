@@ -11,7 +11,7 @@ import os
 # class hierarchy: Game -> board -> pieces
 # 
 # TODO: add timer to game, command to undo moves, 3-fold repetition, checkmate, 
-#       update board for castling, 
+#       
 
 rule = "[a-h][1-9][a-h][1-9]" # regex rule for moves
 
@@ -205,6 +205,7 @@ class Game: # handles game logic + interacts with stockfish
         self.num_moves = 0                                         # number of moves (extraneous, may remove)
         self.set_skill_level(self.request_skill_level())           # request a skill level for engine
         self.choose_side(self.request_side())                      # request a starting side
+        self.m_starting_side = 0
         self.m_board = Board(self.m_cur_turn)
 
     def set_skill_level(self, d_level):   # function to set a skill level
@@ -213,9 +214,18 @@ class Game: # handles game logic + interacts with stockfish
 
     def choose_side(self, d_side):        # function to set a starting side
         self.m_cur_turn = d_side
+        self.m_starting_side = d_side
 
     def check_for_mate(self, val):        # function periodically checks if there is a checkmate and ends game if true
-        return 1
+        # we can check for checkmate by looking at what stockfish thinks is the best move
+        # if stockfish says only 1 move is the best move, we're in check
+        # if no move is the best move, we're in checkmate.
+        moves = self.sf.get_best_move()
+        mate = 0
+        print(moves)
+        if moves == None:
+            mate = 1
+        return mate
 
     def check_for_castle(self, start, end):
         r_a = 0
@@ -254,7 +264,21 @@ class Game: # handles game logic + interacts with stockfish
         self.m_board.change_pos(ind_pos_s, ind_pos_e)
         return 1
 
-    def endGame(self, ):                  
+    def endGame(self, ): 
+        # if mate is triggered, loser will be whoever's current turn it is
+        win = 0
+        w_side = 0
+        if self.m_cur_turn == 0:    # white lost
+            w_side = 1
+            if self.m_cur_turn != self.m_starting_side:
+                win = 1
+        else:                       # black lost
+            if self.m_cur_turn != self.m_starting_side:
+                win = 1
+        if win:
+            print('you won!')
+        else:
+            print('you lost!')
         return 1
 
     def request_side(self, ): # prompts user for choosing a starting side
@@ -308,7 +332,9 @@ class Game: # handles game logic + interacts with stockfish
         self.m_board.print_board_state()
         while in_game:
             # check if currently in checkmate (to end game)
-            move = None
+            mate = self.check_for_mate()
+            if mate:    # game is now over
+                break
             turn = "your" if self.m_cur_turn == 0 else "the computer's"
             print("It is now " + turn + " turn." + "\n")
             if self.m_cur_turn == 0:
@@ -335,6 +361,7 @@ class Game: # handles game logic + interacts with stockfish
             self.num_moves = self.num_moves + 1
             self.updateBoard(move)
             self.m_board.print_board_state()
+        self.endGame()    
 
 
 def runGame():
